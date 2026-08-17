@@ -31,12 +31,14 @@ class Pcms(CMakePackage):
     variant('netcdf', default=False, description='link against netcdf for vmec read')
     variant('petsc', default=False, description='link against petsc, required for conservative field transfer')
     variant('meshfields', default=True, description='link against mesh fields for FEM field evaluation')
+    variant('sundials', default=False, description='link against sundials for adaptive transient timestepping')
 
     depends_on('redev@main', when='@develop,xgc')
     depends_on('redev@4.3.1:',type=('build','link','run'))
     depends_on('kokkos', type=('build','link','run'))
     depends_on('kokkos-kernels', type=('build','link','run'))
     depends_on('omega-h@11.0.0-scorec:+kokkos~trilinos+mpi')
+    depends_on('omega-h+python+shared', when="+shared")
     #depends_on('fftw',type=('build','link','run'))
     depends_on('catch2@3:', when='@0.0.6:+tests',type=('build','link','run'))
     depends_on('catch2@2:2.99', when='@:0.0.5+tests',type=('build','link','run'))
@@ -47,6 +49,7 @@ class Pcms(CMakePackage):
     depends_on('meshfields', when='@develop,xgc+meshfields')
     depends_on('spdlog+shared', when="@xgc")
     depends_on('petsc+kokkos', when="@develop+petsc")
+    depends_on('sundials', when="+sundials")
     depends_on('c')
     depends_on('cxx')
     depends_on('fortran', when='+fortran')
@@ -80,7 +83,8 @@ class Pcms(CMakePackage):
                 self.define(f'{prefix}_TEST_DATA_DIR', self.stage.source_path+'/testdata'),
                 self.define_from_variant(f'{prefix}_ENABLE_NETCDF', 'netcdf'),
                 self.define_from_variant(f'{prefix}_ENABLE_PETSC', 'petsc'),
-                self.define_from_variant(f'{prefix}_ENABLE_MESHFIELDS', 'meshfields')
+                self.define_from_variant(f'{prefix}_ENABLE_MESHFIELDS', 'meshfields'),
+                self.define_from_variant(f'{prefix}_ENABLE_SUNDIALS', 'sundials')
                 ]
         args.append(self.define("perfstubs_DIR",self.spec["perfstubs"].libs.directories[0] + "/cmake" ))
         return args
