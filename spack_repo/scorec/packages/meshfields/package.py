@@ -36,10 +36,13 @@ class Meshfields(CMakePackage):
     version('main', branch='main')
 
     variant('shared', default=False, description='enable shared library builds')
+    variant('tests', default=False, description='enable build of tests')
 
     depends_on('cxx')
+    depends_on('c') # requires c compiler when building with cabana
     depends_on('cabana', type=('build', 'link', 'run'))
     depends_on('kokkos', type=('build','link','run'))
+    depends_on('kokkos-kernels', type=('build', 'link', 'run'))
     depends_on('omega-h@11.0.0-scorec:+kokkos+mpi~trilinos',type=('build','link','run'))
 
     def cmake_args(self):
@@ -47,6 +50,8 @@ class Meshfields(CMakePackage):
         # FIXME: CMAKE_INSTALL_PREFIX and CMAKE_BUILD_TYPE
         # FIXME: If not needed delete this function
         args = [
-            self.define_from_variant("BUILD_SHARED_LIBS", 'shared')
+            self.define_from_variant("BUILD_SHARED_LIBS", 'shared'),
+            self.define_from_variant("MeshFields_IS_TESTING", 'tests'),
+            self.define("MeshFields_USE_Cabana", True),
         ]
         return args
