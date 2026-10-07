@@ -8,7 +8,7 @@ from spack.package import *
 class Engpar(CMakePackage):
     homepage      = "https://github.com/SCOREC/EnGPar"
     git      = "https://github.com/SCOREC/EnGPar"
-    maintainers = ['Angelyr','jacobmerson','cwsmith']
+    maintainers = ['cwsmith']
 
     version('master', branch='master')
 
