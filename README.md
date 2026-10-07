@@ -1,7 +1,10 @@
-# pumi-pic-spack (Spack repo)
+# scorec-spack-packages (Spack repo)
 
-This Spack repository provides recipes for:
+This Spack repository (namespace `scorec`) provides recipes for SCOREC software and related dependencies, including:
 
+- **PCMS**: [SCOREC/pcms](https://github.com/SCOREC/pcms)
+- **MeshFields**: [SCOREC/meshFields](https://github.com/SCOREC/meshFields)
+- **EnGPar**: [SCOREC/EnGPar](https://github.com/SCOREC/EnGPar)
 - **PUMI-PiC**: [SCOREC/pumi-pic](https://github.com/SCOREC/pumi-pic)
 - **OpenMC with PUMI‑Tally** (OpenMC fork integrating PUMI‑Tally):
   - **OpenMC fork**: [Fuad-HH/openmc](https://github.com/Fuad-HH/openmc) (upstream: [openmc-dev/openmc](https://github.com/openmc-dev/openmc))
@@ -28,8 +31,8 @@ spack env activate pumi-env
 ### 3. Add this repository to Spack and update the `builtin` repository
 
 ```bash
-git repo add https://github.com/Fuad-HH/pumi-pic-spack.git --name pumi-pic-spack
-spack repo update builtin --branch releases/v2026.02
+spack repo add https://github.com/SCOREC/scorec-spack-packages.git --name scorec
+spack repo update builtin --branch releases/v2026.10
 ```
 Now, if you do `spack config get repos` you should see the repositories added to the list.
 And doing `spack info pumi-pic` should show the package.
