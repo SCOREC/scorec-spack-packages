@@ -20,10 +20,11 @@
 # ----------------------------------------------------------------------------
 
 from spack_repo.builtin.build_systems.cmake import CMakePackage
+from spack_repo.builtin.build_systems.cuda import CudaPackage
 from spack.package import *
 
 
-class Meshfields(CMakePackage):
+class Meshfields(CMakePackage, CudaPackage):
     """FIXME: Put a proper description of your package here."""
 
     homepage = "https://github.com/SCOREC/meshFields"
@@ -41,6 +42,8 @@ class Meshfields(CMakePackage):
     depends_on('cabana', type=('build', 'link', 'run'))
     depends_on('kokkos', type=('build','link','run'))
     depends_on('omega-h@11.0.0-scorec:+kokkos+mpi~trilinos',type=('build','link','run'))
+    depends_on('kokkos+cuda', when='+cuda')
+    depends_on('cabana+cuda', when='+cuda')
 
     def cmake_args(self):
         # FIXME: Add arguments other than
