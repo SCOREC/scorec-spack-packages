@@ -5,6 +5,7 @@
 
 #from spack import *
 from spack_repo.builtin.build_systems.cmake import CMakePackage
+from spack_repo.builtin.build_systems.cuda import CudaPackage
 from spack.package import *
 
 
@@ -18,7 +19,6 @@ class Pcms(CMakePackage):
     #version('0.0.5', tag='v0.0.5') 
     version('0.0.5', commit='12d609cc2622c62b7d43263812fb8403a0a5f6ef')
     version('develop', branch='develop')
-    version('xgc', commit='dfa7402ef44fc61461805c3f9b332674c76f8498')
 
     # cannot build without omega_h
     #variant('omega-h', default=True, description='enable Omega-h for unstructured meshes')
@@ -33,7 +33,7 @@ class Pcms(CMakePackage):
     variant('meshfields', default=True, description='link against mesh fields for FEM field evaluation')
     variant('sundials', default=False, description='link against sundials for adaptive transient timestepping')
 
-    depends_on('redev@main', when='@develop,xgc')
+    depends_on('redev@main', when='@develop')
     depends_on('redev@4.3.1:',type=('build','link','run'))
     depends_on('kokkos', type=('build','link','run'))
     depends_on('kokkos-kernels', type=('build','link','run'))
@@ -46,9 +46,15 @@ class Pcms(CMakePackage):
     depends_on('adios2+fortran@2.10.2',when="+fortran",type=('build', 'link','run'))
     depends_on('meshfields+shared', when="@develop+python")
     depends_on('meshfields+shared', when="+shared")
-    depends_on('meshfields', when='@develop,xgc+meshfields')
-    depends_on('spdlog+shared', when="@xgc")
+    depends_on('meshfields', when='@develop')
+    depends_on('meshfields', when='+meshfields')
     depends_on('petsc+kokkos', when="@develop+petsc")
+    # PETSc only enables CUDA from its own +cuda variant (it does not follow the
+    # Kokkos backend), and petsc~cuda fails to configure against a CUDA Kokkos.
+    # Key PETSc's CUDA off the Kokkos we build against, as pumi-tally does.
+    for arch in CudaPackage.cuda_arch_values:
+        cuda_dep = f"+cuda cuda_arch={arch}"
+        depends_on(f"petsc {cuda_dep}", when=f"@develop+petsc ^kokkos {cuda_dep}")
     depends_on('sundials', when="+sundials")
     depends_on('c')
     depends_on('cxx')
@@ -68,7 +74,7 @@ class Pcms(CMakePackage):
 
     def cmake_args(self):
         prefix = "PCMS"
-        if self.spec.satisfies("@:0.0.5") and not self.spec.satisfies("@xgc"):
+        if self.spec.satisfies("@:0.0.5"):
             prefix = "WDMCPL"
         args = [
                 self.define(f"{prefix}_ENABLE_OMEGA_H", True),
