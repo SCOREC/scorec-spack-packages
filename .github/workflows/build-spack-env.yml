@@ -1,0 +1,133 @@
+name: Build Spack environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Name of a directory under environments/
+        required: true
+        type: string
+      runner:
+        required: false
+        type: string
+        default: ubuntu-24.04
+      base-image:
+        description: Base image used when pushing runnable images to the build cache
+        required: false
+        type: string
+        default: ubuntu:24.04
+      tests:
+        description: Run build-time tests of the root specs and Spack stand-alone tests
+        required: false
+        type: boolean
+        default: false
+
+env:
+  SPACK_ENV_DIR: environments/${{ inputs.environment }}
+  # OCI repository names must be lowercase.
+  BUILDCACHE_URL: oci://ghcr.io/scorec/scorec-spack-buildcache
+  PUSH_BUILDCACHE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: ${{ inputs.environment }}
+    runs-on: ${{ inputs.runner }}
+    steps:
+    - uses: actions/checkout@v5
+
+    # Equivalent of spack/setup-spack, which the repo's Actions policy
+    # (GitHub-owned actions only) doesn't allow.
+    - name: Checkout Spack
+      uses: actions/checkout@v5
+      with:
+        repository: spack/spack
+        ref: releases/v1.2
+        path: .spack/spack
+
+    - name: Checkout Spack packages
+      uses: actions/checkout@v5
+      with:
+        repository: spack/spack-packages
+        ref: releases/v2026.10
+        path: .spack/spack-packages
+
+    - name: Set up Spack
+      run: |
+        echo "$GITHUB_WORKSPACE/.spack/spack/bin" >> "$GITHUB_PATH"
+        echo "SPACK_COLOR=always" >> "$GITHUB_ENV"
+        echo "SPACK_DISABLE_LOCAL_CONFIG=1" >> "$GITHUB_ENV"
+        export PATH="$GITHUB_WORKSPACE/.spack/spack/bin:$PATH"
+        export SPACK_DISABLE_LOCAL_CONFIG=1
+        spack repo set --destination "$GITHUB_WORKSPACE/.spack/spack-packages" builtin
+        spack mirror add --unsigned github-actions-buildcache oci://ghcr.io/spack/github-actions-buildcache
+
+    - name: Add SCOREC build cache
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        spack mirror add --unsigned \
+          --oci-username-variable GITHUB_ACTOR \
+          --oci-password-variable GITHUB_TOKEN \
+          scorec-buildcache "$BUILDCACHE_URL"
+
+    - name: Concretize
+      run: |
+        spack -e "$SPACK_ENV_DIR" concretize --fresh
+        spack -e "$SPACK_ENV_DIR" find -c -l
+
+    - name: Upload spack.lock
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.environment }}-spack.lock
+        path: ${{ env.SPACK_ENV_DIR }}/spack.lock
+
+    - name: Install
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # MPI tests may launch more ranks than the runner has cores.
+        OMPI_MCA_rmaps_base_oversubscribe: "1"
+        PRTE_MCA_rmaps_default_mapping_policy: ":oversubscribe"
+      run: |
+        # Root specs track git branches, so their hashes don't change when the
+        # branch moves; always rebuild them from source and only pull
+        # dependencies from the cache.
+        spack -e "$SPACK_ENV_DIR" install --fail-fast -j "$(nproc)" \
+          --use-buildcache package:never,dependencies:auto \
+          ${{ inputs.tests && '--test=root' || '' }}
+
+    - name: Stand-alone tests
+      if: ${{ inputs.tests }}
+      env:
+        OMPI_MCA_rmaps_base_oversubscribe: "1"
+        PRTE_MCA_rmaps_default_mapping_policy: ":oversubscribe"
+      run: spack -e "$SPACK_ENV_DIR" test run
+
+    - name: Push to build cache
+      if: ${{ !cancelled() && env.PUSH_BUILDCACHE == 'true' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Push whatever got installed, even if the install step failed, so
+        # the next run doesn't rebuild it.
+        spack -e "$SPACK_ENV_DIR" buildcache push --unsigned --update-index \
+          --base-image "${{ inputs.base-image }}" \
+          scorec-buildcache
+
+    - name: Collect build logs
+      if: failure()
+      run: |
+        mkdir -p build-logs
+        stage="$(spack location -S)"
+        # configure.log is written by PETSc into its source dir (spack-src/).
+        # install-time-test-log.txt holds the --test=root (ctest) output.
+        find "$stage" -maxdepth 3 \( -name 'spack-build-out.txt' -o -name 'spack-build-env.txt' -o -name 'configure.log' \
+          -o -name 'install-time-test-log.txt' \) \
+          -exec sh -c 'pkg=${1#"$2"/}; pkg=${pkg%%/*}; cp "$1" "build-logs/${pkg}-$(basename "$1")"' _ {} "$stage" \;
+
+    - name: Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.environment }}-build-logs
+        path: build-logs/
+        if-no-files-found: ignore

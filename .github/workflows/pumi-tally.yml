@@ -1,0 +1,34 @@
+name: PUMI-Tally environment
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+    - environments/pumi-tally/**
+    - spack_repo/scorec/repo.yaml
+    - spack_repo/scorec/packages/pumi_tally/**
+    - spack_repo/scorec/packages/pumi_pic/**
+    - spack_repo/scorec/packages/engpar/**
+    - .github/workflows/pumi-tally.yml
+    - .github/workflows/build-spack-env.yml
+  pull_request:
+    paths: *paths
+  schedule:
+  # Weekly rebuild to pick up new commits on tracked branches and keep the
+  # build cache warm for downstream CI.
+  - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-spack-env.yml
+    with:
+      environment: pumi-tally

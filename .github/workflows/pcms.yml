@@ -1,0 +1,35 @@
+name: PCMS environment
+
+on:
+  push:
+    branches: [main]
+    paths: &paths
+    - environments/pcms/**
+    - spack_repo/scorec/repo.yaml
+    - spack_repo/scorec/packages/pcms/**
+    - spack_repo/scorec/packages/redev/**
+    - spack_repo/scorec/packages/meshfields/**
+    - .github/workflows/pcms.yml
+    - .github/workflows/build-spack-env.yml
+  pull_request:
+    paths: *paths
+  schedule:
+  # Weekly rebuild to pick up new commits on tracked branches and keep the
+  # build cache warm for downstream CI.
+  - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-spack-env.yml
+    with:
+      environment: pcms
+      tests: true

@@ -38,7 +38,9 @@ class Pcms(CMakePackage, CudaPackage):
     depends_on('kokkos', type=('build','link','run'))
     depends_on('kokkos-kernels', type=('build','link','run'))
     depends_on('omega-h@11.0.0-scorec:+kokkos~trilinos+mpi')
-    depends_on('omega-h+python+shared', when="+shared")
+    depends_on('omega-h+shared', when="+shared")
+    # 11.4.0-scorec is first version with pybind11 as private dependency
+    depends_on('omega-h@11.4.0-scorec:+python', when="+python")
     #depends_on('fftw',type=('build','link','run'))
     depends_on('catch2@3:', when='@0.0.6:+tests',type=('build','link','run'))
     depends_on('catch2@2:2.99', when='@:0.0.5+tests',type=('build','link','run'))
@@ -114,3 +116,10 @@ class Pcms(CMakePackage, CudaPackage):
                 self._if_ninja_target_execute('test',
                                               jobs_env='CTEST_PARALLEL_LEVEL',parallel=False)
                 self._if_ninja_target_execute('check',parallel=False)
+
+    def test_python_import(self):
+        """Check that the installed Python module can be imported"""
+        if not self.spec.satisfies("+python"):
+            raise SkipTest("Package must be built with +python")
+        python = self.spec["python"].command
+        python("-c", "import pcms")

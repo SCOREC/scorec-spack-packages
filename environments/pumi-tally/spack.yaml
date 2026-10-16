@@ -1,0 +1,24 @@
+# PUMI-Tally environment (CPU: Kokkos Serial + OpenMP).
+#
+# Built by .github/workflows/pumi-tally.yml. Intended to be reused for
+# container images and as the dependency stack for downstream CI.
+#
+#   spack env activate environments/pumi-tally
+#   spack install
+spack:
+  specs:
+  - pumi-tally ^pumi-pic+shared ^kokkos+serial+openmp
+
+  repos:
+    scorec: $env/../../spack_repo/scorec
+
+  concretizer:
+    unify: true
+    reuse: false
+
+  config:
+    install_tree:
+      # Padding lets binaries from the build cache relocate to any install root.
+      padded_length: 128
+
+  view: false

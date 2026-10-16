@@ -41,9 +41,11 @@ class Meshfields(CMakePackage, CudaPackage):
 
     depends_on('cxx')
     depends_on('c') # requires c compiler when building with cabana
-    depends_on('cabana', type=('build', 'link', 'run'))
-    depends_on('kokkos', type=('build','link','run'))
-    depends_on('kokkos-kernels', type=('build', 'link', 'run'))
+    depends_on('cabana@0.7.0:', type=('build', 'link', 'run'))
+    # cabana@:0.7 uses Kokkos::MemoryManaged, which kokkos@4.7: only provides
+    # with +deprecated_code (removed entirely in 5). Matches the known-working
+    depends_on('kokkos@4:4.6', type=('build','link','run'))
+    depends_on('kokkos-kernels@4:4.6', type=('build', 'link', 'run'))
     depends_on('omega-h@11.0.0-scorec:+kokkos+mpi~trilinos',type=('build','link','run'))
     depends_on('kokkos+cuda', when='+cuda')
     depends_on('cabana+cuda', when='+cuda')

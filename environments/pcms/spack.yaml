@@ -1,0 +1,28 @@
+spack:
+  specs:
+  - matrix:
+    - [pcms@develop]
+    - ['~python', '+python']
+    - ['~petsc', '+petsc']
+    - ['^kokkos+serial+openmp']
+
+  repos:
+    scorec: $env/../../spack_repo/scorec
+
+  packages:
+    petsc:
+      # Drop this once the petsc conflicts("~openmp", when="+kokkos ^kokkos+openmp").
+      # Currently when Kokkos/kokkos-kernels+openmp, petsc recipe may pick ~openmp
+      require: '+openmp'
+
+  concretizer:
+    # Required so mutually exclusive variants can coexist in one environment.
+    unify: false
+    reuse: false
+
+  config:
+    install_tree:
+      # Padding lets binaries from the build cache relocate to any install root.
+      padded_length: 128
+
+  view: false
