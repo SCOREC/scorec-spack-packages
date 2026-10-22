@@ -60,6 +60,7 @@ class Pcms(CMakePackage, CudaPackage):
     depends_on('python', when='+python')
     depends_on('py-pybind11', type='build', when='+python')
     depends_on('py-numpy', type=('build','link','run'), when='+python')
+    depends_on('py-pytest', type='test', when='+tests+python')
     depends_on('netcdf-c build_system=cmake', when='+netcdf')
     # pcms_testcases stores large files with git-lfs
     depends_on('git-lfs', type='build', when='+tests')
