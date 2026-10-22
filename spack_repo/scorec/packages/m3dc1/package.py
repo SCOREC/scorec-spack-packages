@@ -18,6 +18,9 @@ class M3dc1(CMakePackage, CudaPackage):
 
     version("test", branch="yus/cmake")
 
+    #Patch for mpi pointer types. Needed until patch is applied upstream
+    patch("mpi-baseptr-address-kind.patch", when="@test")
+
     # ------------------------------------------------------------------
     # Variants mirroring the -D flags in your cmake invocation
     # ------------------------------------------------------------------
