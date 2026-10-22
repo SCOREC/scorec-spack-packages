@@ -44,7 +44,8 @@ class Meshfields(CMakePackage, CudaPackage):
     depends_on('cabana@0.8.1:', type=('build', 'link', 'run'))
     depends_on('kokkos@4.7.0:4', type=('build','link','run'))
     depends_on('kokkos-kernels@4.7.0:4', type=('build', 'link', 'run'))
-    depends_on('omega-h@11.0.0-scorec:+kokkos+mpi~trilinos',type=('build','link','run'))
+    # Only SCOREC omega-h versions; an open-ended range would also match omega-h@main
+    depends_on('omega-h@11.0.0-scorec:11,master-scorec+kokkos+mpi~trilinos',type=('build','link','run'))
     depends_on('kokkos+cuda', when='+cuda')
     depends_on('cabana+cuda', when='+cuda')
 
