@@ -61,6 +61,7 @@ class Pcms(CMakePackage, CudaPackage):
     depends_on('python', when='+python')
     depends_on('py-pybind11', type='build', when='+python')
     depends_on('py-numpy', type=('build','link','run'), when='+python')
+    depends_on('py-pytest', type='test', when='+tests+python')
     depends_on('netcdf-c build_system=cmake', when='+netcdf')
     # pcms_testcases stores large files with git-lfs
     depends_on('git-lfs', type='build', when='+tests')
@@ -139,9 +140,42 @@ class Pcms(CMakePackage, CudaPackage):
                                               jobs_env='CTEST_PARALLEL_LEVEL',parallel=False)
                 self._if_ninja_target_execute('check',parallel=False)
 
+    @run_after('install')
+    def cache_test_sources(self):
+        srcs = ['examples/external-usage-example']
+        if self.spec.satisfies('+python'):
+            srcs += ['test/python', 'examples/python-api-example']
+        cache_extra_test_sources(self, srcs)
+
     def test_python_import(self):
         """Check that the installed Python module can be imported"""
         if not self.spec.satisfies("+python"):
             raise SkipTest("Package must be built with +python")
         python = self.spec["python"].command
         python("-c", "import pcms")
+
+    def test_external_usage(self):
+        """build and run a project that uses the installed pcms via find_package"""
+        src = join_path(self.test_suite.current_test_cache_dir,
+                        'examples', 'external-usage-example')
+        cmake = which(self.spec['cmake'].prefix.bin.cmake, required=True)
+        with working_dir(join_path(src, 'build'), create=True):
+            cmake(src,
+                  self.define('pcms_ROOT', self.prefix),
+                  self.define('CMAKE_C_COMPILER', self['c'].cc),
+                  self.define('CMAKE_CXX_COMPILER', self['cxx'].cxx),
+                  self.define('MPI_HOME', self.spec['mpi'].prefix))
+            cmake('--build', '.')
+            pcms_test = which(join_path('.', 'pcms_test'), required=True)
+            pcms_test()
+
+    def test_python(self):
+        """run the python test suite against the installed module"""
+        if not self.spec.satisfies('+python'):
+            raise SkipTest('Package must be built with +python')
+        python = self.spec['python'].command
+        python('-c', 'import pytest', fail_on_error=False, output=str, error=str)
+        if python.returncode != 0:
+            raise SkipTest('pytest not available; install pcms with --test')
+        with working_dir(self.test_suite.current_test_cache_dir):
+            python('-m', 'pytest', join_path('test', 'python'), '-p', 'no:cacheprovider')

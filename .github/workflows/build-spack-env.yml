@@ -100,7 +100,8 @@ jobs:
 
     - name: Concretize
       run: |
-        spack -e "$SPACK_ENV_DIR" concretize --fresh
+        spack -e "$SPACK_ENV_DIR" concretize --fresh \
+          ${{ inputs.tests && '--test root' || '' }}
         spack -e "$SPACK_ENV_DIR" find -c -l
 
     - name: Upload spack.lock
