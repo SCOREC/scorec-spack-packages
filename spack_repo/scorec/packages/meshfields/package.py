@@ -21,10 +21,11 @@
 
 from spack_repo.builtin.build_systems.cmake import CMakePackage
 from spack_repo.builtin.build_systems.cuda import CudaPackage
+from spack_repo.builtin.build_systems.rocm import ROCmPackage
 from spack.package import *
 
 
-class Meshfields(CMakePackage, CudaPackage):
+class Meshfields(CMakePackage, CudaPackage, ROCmPackage):
     """FIXME: Put a proper description of your package here."""
 
     homepage = "https://github.com/SCOREC/meshFields"
@@ -55,10 +56,20 @@ class Meshfields(CMakePackage, CudaPackage):
         depends_on('kokkos {0}'.format(cuda_dep), when=cuda_dep)
         depends_on('cabana {0}'.format(cuda_dep), when=cuda_dep)
 
+    # Propagate amdgpu_target to dependencies
+    for arch in ROCmPackage.amdgpu_targets:
+        rocm_dep = '+rocm amdgpu_target={0}'.format(arch)
+        depends_on('kokkos {0}'.format(rocm_dep), when=rocm_dep)
+        depends_on('cabana {0}'.format(rocm_dep), when=rocm_dep)
+
     conflicts('cuda_arch=none', when='+cuda', msg='CUDA architecture is required')
     # Builds through kokkos's nvcc_wrapper, so +cuda must match Kokkos's backend
     conflicts('~cuda', when='^kokkos+cuda', msg='MeshFields requires +cuda when Kokkos has +cuda')
     conflicts('+cuda', when='^kokkos~cuda', msg='MeshFields requires Kokkos+cuda when CUDA is enabled')
+    # Builds with hipcc, so +rocm must match Kokkos's backend
+    conflicts('~rocm', when='^kokkos+rocm', msg='MeshFields requires +rocm when Kokkos has +rocm')
+    conflicts('+rocm', when='^kokkos~rocm', msg='MeshFields requires Kokkos+rocm when ROCm is enabled')
+    conflicts('+cuda', when='+rocm', msg='CUDA and ROCm are not compatible')
 
     def cmake_args(self):
         # FIXME: Add arguments other than
@@ -69,4 +80,15 @@ class Meshfields(CMakePackage, CudaPackage):
             self.define_from_variant("MeshFields_IS_TESTING", 'tests'),
             self.define("MeshFields_USE_Cabana", True),
         ]
-        return args
+        return args + self.kokkos_cxx_args()
+
+    def kokkos_cxx_args(self):
+        # Kokkos's HIP backend needs its users compiled with hipcc unless Kokkos
+        # itself was built with an AMD-capable Clang. Following approach from:
+        # builtin kokkos-kernels, cmake_args.
+        spec = self.spec
+        if spec.satisfies("^kokkos+rocm") and not (
+            spec.satisfies("^kokkos %cxx=clang") or spec.satisfies("^kokkos %cxx=rocmcc")
+        ):
+            return [self.define("CMAKE_CXX_COMPILER", spec["hip"].hipcc)]
+        return []

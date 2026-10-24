@@ -6,10 +6,11 @@
 #from spack import *
 from spack_repo.builtin.build_systems.cmake import CMakePackage
 from spack_repo.builtin.build_systems.cuda import CudaPackage
+from spack_repo.builtin.build_systems.rocm import ROCmPackage
 from spack.package import *
 
 
-class Pcms(CMakePackage, CudaPackage):
+class Pcms(CMakePackage, CudaPackage, ROCmPackage):
     """FIXME: Put a proper description of your package here."""
 
     homepage      = "https://github.com/SCOREC/pcms"
@@ -77,11 +78,22 @@ class Pcms(CMakePackage, CudaPackage):
         depends_on('meshfields {0}'.format(cuda_dep), when='{0} ^meshfields'.format(cuda_dep))
         depends_on('petsc {0}'.format(cuda_dep), when='@develop+petsc {0}'.format(cuda_dep))
 
+    # Propagate amdgpu_target to dependencies
+    for arch in ROCmPackage.amdgpu_targets:
+        rocm_dep = '+rocm amdgpu_target={0}'.format(arch)
+        depends_on('kokkos {0}'.format(rocm_dep), when=rocm_dep)
+        depends_on('meshfields {0}'.format(rocm_dep), when='{0} ^meshfields'.format(rocm_dep))
+        depends_on('petsc {0}'.format(rocm_dep), when='@develop+petsc {0}'.format(rocm_dep))
+
     conflicts('cuda_arch=none', when='+cuda', msg='CUDA architecture is required')
     conflicts('+gnet', when='@:0.0.5', msg='GNET support was added after 0.0.5')
     # Builds through kokkos's nvcc_wrapper, so +cuda must match Kokkos's backend
     conflicts('~cuda', when='^kokkos+cuda', msg='PCMS requires +cuda when Kokkos has +cuda')
     conflicts('+cuda', when='^kokkos~cuda', msg='PCMS requires Kokkos+cuda when CUDA is enabled')
+    # Builds with hipcc, so +rocm must match Kokkos's backend
+    conflicts('~rocm', when='^kokkos+rocm', msg='PCMS requires +rocm when Kokkos has +rocm')
+    conflicts('+rocm', when='^kokkos~rocm', msg='PCMS requires Kokkos+rocm when ROCm is enabled')
+    conflicts('+cuda', when='+rocm', msg='CUDA and ROCm are not compatible')
 
 
     resource(name='testdata',
@@ -123,7 +135,18 @@ class Pcms(CMakePackage, CudaPackage):
         args.append(self.define("perfstubs_DIR",self.spec["perfstubs"].libs.directories[0] + "/cmake" ))
         if self.spec.satisfies("+python"):
             args.append(self.define("PCMS_PYTHON_INSTALL_LOCATION", python_platlib))
-        return args
+        return args + self.kokkos_cxx_args()
+
+    def kokkos_cxx_args(self):
+        # Kokkos's HIP backend needs its users compiled with hipcc unless Kokkos
+        # itself was built with an AMD-capable Clang. Following approach from:
+        # builtin kokkos-kernels, cmake_args.
+        spec = self.spec
+        if spec.satisfies("^kokkos+rocm") and not (
+            spec.satisfies("^kokkos %cxx=clang") or spec.satisfies("^kokkos %cxx=rocmcc")
+        ):
+            return [self.define("CMAKE_CXX_COMPILER", spec["hip"].hipcc)]
+        return []
 
     # modify the default behavior in lib/spack/build_systems/cmake.py
     # to not use parallel builds

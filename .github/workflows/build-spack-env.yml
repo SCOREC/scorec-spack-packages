@@ -23,8 +23,9 @@ on:
         default: false
       container:
         description: >-
-          Image to run the job in (e.g. nvidia/cuda:...-devel). Its CUDA toolkit,
-          if any, is registered as a non-buildable external. Empty runs on the runner.
+          Image to run the job in (e.g. nvidia/cuda:...-devel). Its CUDA toolkit or
+          ROCm, if any, is registered as non-buildable externals. Empty runs on the
+          runner.
         required: false
         type: string
         default: ''
@@ -96,6 +97,31 @@ jobs:
         if [ -x /usr/local/cuda/bin/nvcc ]; then
           export PATH="/usr/local/cuda/bin:$PATH"
           spack -e "$SPACK_ENV_DIR" external find --not-buildable cuda
+        fi
+
+    # The ROCm image has only HIP. PETSc+rocm also needs the math libraries,
+    # which come from the image's AMD apt repository. Spack does not detect
+    # llvm-amdgpu there, so every ROCm package is registered explicitly.
+    - name: Register container ROCm
+      if: ${{ inputs.container != '' }}
+      run: |
+        if [ -d /opt/rocm ]; then
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            hipblas-dev hipsparse-dev hipsolver-dev rocprim-dev rocthrust-dev
+          rocm="$(realpath /opt/rocm)"
+          version="$(cut -d- -f1 < "$rocm/.info/version")"
+          {
+            echo "packages:"
+            for pkg in hip hsa-rocr-dev comgr rocm-core rocminfo llvm-amdgpu \
+                       rocblas rocsparse rocsolver rocrand rocprim rocthrust \
+                       hipblas hipblas-common hipsparse hipsolver; do
+              prefix="$rocm"
+              [ "$pkg" = llvm-amdgpu ] && prefix="$rocm/llvm"
+              printf '  %s:\n    buildable: false\n    externals:\n    - spec: %s@%s\n      prefix: %s\n' \
+                "$pkg" "$pkg" "$version" "$prefix"
+            done
+          } > rocm-externals.yaml
+          spack -e "$SPACK_ENV_DIR" config add --file rocm-externals.yaml
         fi
 
     - name: Concretize
