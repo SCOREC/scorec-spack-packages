@@ -6,6 +6,7 @@ on:
     paths: &paths
     - environments/pcms/**
     - environments/pcms-cuda/**
+    - environments/pcms-rocm/**
     - spack_repo/scorec/repo.yaml
     - spack_repo/scorec/packages/pcms/**
     - spack_repo/scorec/packages/redev/**
@@ -44,3 +45,11 @@ jobs:
       environment: pcms-cuda
       container: nvidia/cuda:12.6.3-devel-ubuntu24.04
       base-image: nvidia/cuda:12.6.3-devel-ubuntu24.04
+
+  # Compile-only for Frontier's MI250X (gfx90a) with Frontier's ROCm version.
+  build-rocm:
+    uses: ./.github/workflows/build-spack-env.yml
+    with:
+      environment: pcms-rocm
+      container: rocm/dev-ubuntu-24.04:6.4.2
+      base-image: rocm/dev-ubuntu-24.04:6.4.2

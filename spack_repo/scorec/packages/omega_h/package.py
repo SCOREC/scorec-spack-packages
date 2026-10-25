@@ -21,6 +21,8 @@ class OmegaH(BuiltinOmegaH):
     # Omega_h follows Kokkos's backend, but with kokkos+cuda it compiles through
     # kokkos's nvcc_wrapper, which needs nvcc on PATH.
     depends_on("cuda", type="build", when="+kokkos ^kokkos+cuda")
+    # With kokkos+rocm it compiles with hipcc.
+    depends_on("hip", type="build", when="+kokkos ^kokkos+rocm")
 
     # Make PyOmega_h_DEST overridable (default lib/, not lib64/) so the python
     # module lands in spack's python_platlib. Drop once merged upstream.
@@ -30,4 +32,15 @@ class OmegaH(BuiltinOmegaH):
         args = super().cmake_args()
         if self.spec.satisfies("@11.4.0-scorec+python"):
             args.append(self.define("PyOmega_h_DEST", python_platlib))
-        return args
+        return args + self.kokkos_cxx_args()
+
+    def kokkos_cxx_args(self):
+        # Kokkos's HIP backend needs its users compiled with hipcc unless Kokkos
+        # itself was built with an AMD-capable Clang. Following approach from:
+        # builtin kokkos-kernels, cmake_args.
+        spec = self.spec
+        if spec.satisfies("+kokkos ^kokkos+rocm") and not (
+            spec.satisfies("^kokkos %cxx=clang") or spec.satisfies("^kokkos %cxx=rocmcc")
+        ):
+            return [self.define("CMAKE_CXX_COMPILER", spec["hip"].hipcc)]
+        return []
