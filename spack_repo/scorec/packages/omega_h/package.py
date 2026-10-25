@@ -28,6 +28,10 @@ class OmegaH(BuiltinOmegaH):
     # module lands in spack's python_platlib. Drop once merged upstream.
     patch("pyomega_h-install-location.patch", when="@11.4.0-scorec+python")
 
+    # Drop once
+    # https://github.com/SCOREC/omega_h/pull/250 is merged.
+    patch("omega_h-sort-gpu-openmp.patch", when="@11.4.0-scorec")
+
     def cmake_args(self):
         args = super().cmake_args()
         if self.spec.satisfies("@11.4.0-scorec+python"):
