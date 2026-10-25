@@ -107,7 +107,8 @@ jobs:
       run: |
         if [ -d /opt/rocm ]; then
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            hipblas-dev hipsparse-dev hipsolver-dev rocprim-dev rocthrust-dev
+            hipblas-dev hipsparse-dev hipsolver-dev rocblas-dev rocsparse-dev \
+            rocsolver-dev rocrand-dev rocprim-dev rocthrust-dev
           rocm="$(realpath /opt/rocm)"
           version="$(cut -d- -f1 < "$rocm/.info/version")"
           {
