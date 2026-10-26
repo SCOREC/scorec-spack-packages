@@ -3,7 +3,9 @@ spack:
   - matrix:
     - [pcms@develop]
     - ['~python', '+python']
-    - ['~petsc', '+petsc']
+    # netcdf and exodus ride along with +petsc so the +python+petsc spec has
+    # every feature published in the container image without extra builds.
+    - ['~petsc', '+petsc +netcdf ^omega-h+exodus']
     - ['^kokkos+serial+openmp']
 
   repos:

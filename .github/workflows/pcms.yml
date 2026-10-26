@@ -36,6 +36,9 @@ jobs:
     with:
       environment: pcms
       tests: true
+      # Published as a runnable CPU image on main.
+      image-spec: pcms+python+petsc
+      image-tag: pcms-develop
 
   # Compile-only: hosted runners have no GPU, so no tests. The container
   # provides nvcc; compiling for cuda_arch=75 needs no device.
@@ -53,3 +56,24 @@ jobs:
       environment: pcms-rocm
       container: rocm/dev-ubuntu-24.04:6.4.2
       base-image: rocm/dev-ubuntu-24.04:6.4.2
+
+  # Checks the published image runs on a plain base image, outside the
+  # environment it was built in.
+  test-container:
+    needs: build
+    if: ${{ needs.build.outputs.image != '' }}
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Log in to GHCR
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Run image
+      env:
+        IMAGE: ${{ needs.build.outputs.image }}
+      run: |
+        docker pull "$IMAGE"
+        docker run --rm "$IMAGE" python3 -c "import pcms"
+        docker run --rm \
+          -e OMPI_ALLOW_RUN_AS_ROOT=1 -e OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
+          -e OMPI_MCA_rmaps_base_oversubscribe=1 \
+          "$IMAGE" mpirun -n 2 python3 -c "import pcms"

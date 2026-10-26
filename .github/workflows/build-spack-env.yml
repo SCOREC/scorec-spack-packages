@@ -29,6 +29,22 @@ on:
         required: false
         type: string
         default: ''
+      image-spec:
+        description: >-
+          Root spec of the environment to publish as a runnable image in the build
+          cache registry.
+        required: false
+        type: string
+        default: ''
+      image-tag:
+        description: Image tag, pushed as <image-tag> and <image-tag>-<UTC date>
+        required: false
+        type: string
+        default: ''
+    outputs:
+      image:
+        description: Dated image reference, if an image was pushed
+        value: ${{ jobs.build.outputs.image }}
 
 env:
   SPACK_ENV_DIR: environments/${{ inputs.environment }}
@@ -40,6 +56,8 @@ jobs:
   build:
     name: ${{ inputs.environment }}
     runs-on: ${{ inputs.runner }}
+    outputs:
+      image: ${{ steps.tag-image.outputs.image }}
     # An empty image runs the job directly on the runner.
     container:
       image: ${{ inputs.container }}
@@ -171,6 +189,29 @@ jobs:
           --base-image "${{ inputs.base-image }}" \
           scorec-buildcache
 
+    # Only tag images whose build and tests passed.
+    - name: Push container image
+      id: tag-image
+      if: ${{ inputs.image-spec != '' && env.PUSH_BUILDCACHE == 'true' }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        IMAGE_SPEC: ${{ inputs.image-spec }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+      run: |
+        push() {
+          spack -e "$SPACK_ENV_DIR" buildcache push --unsigned --allow-missing \
+            --base-image "${{ inputs.base-image }}" "$@" scorec-buildcache "$IMAGE_SPEC"
+        }
+        # The root tracks a git branch, so its hash is stable and the push above
+        # skipped it if it was already cached. Overwrite it with this build.
+        push --force --only package
+        # Not forced: --tag only includes layers for specs in the same push, and
+        # this one finds them all in the cache without uploading anything.
+        dated="$IMAGE_TAG-$(date -u +%Y-%m-%d)"
+        push --tag "$dated"
+        push --tag "$IMAGE_TAG"
+        echo "image=${BUILDCACHE_URL#oci://}:$dated" >> "$GITHUB_OUTPUT"
+
     - name: Collect build logs
       if: failure()
       run: |
@@ -181,6 +222,10 @@ jobs:
         find "$stage" -maxdepth 3 \( -name 'spack-build-out.txt' -o -name 'spack-build-env.txt' -o -name 'configure.log' \
           -o -name 'install-time-test-log.txt' \) \
           -exec sh -c 'pkg=${1#"$2"/}; pkg=${pkg%%/*}; cp "$1" "build-logs/${pkg}-$(basename "$1")"' _ {} "$stage" \;
+        # Stand-alone test (spack test run) output.
+        if [ -d ~/.spack/test ]; then
+          find ~/.spack/test -name '*-test-out.txt' -exec cp {} build-logs/ \;
+        fi
 
     - name: Upload build logs
       if: failure()
