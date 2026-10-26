@@ -100,14 +100,16 @@ jobs:
         spack repo set --destination "$GITHUB_WORKSPACE/.spack/spack-packages" builtin
         spack mirror add --unsigned github-actions-buildcache oci://ghcr.io/spack/github-actions-buildcache
 
+    # The build cache is public, so only pushing needs credentials. Keeping the
+    # token out of the install step keeps it out of the build environment that
+    # Spack dumps to spack-build-env.txt.
     - name: Add SCOREC build cache
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        spack mirror add --unsigned \
+        spack mirror add --unsigned scorec-buildcache "$BUILDCACHE_URL"
+        spack mirror set --push \
           --oci-username-variable GITHUB_ACTOR \
           --oci-password-variable GITHUB_TOKEN \
-          scorec-buildcache "$BUILDCACHE_URL"
+          scorec-buildcache
 
     - name: Register container CUDA toolkit
       if: ${{ inputs.container != '' }}
@@ -157,7 +159,6 @@ jobs:
 
     - name: Install
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # MPI tests may launch more ranks than the runner has cores.
         OMPI_MCA_rmaps_base_oversubscribe: "1"
         PRTE_MCA_rmaps_default_mapping_policy: ":oversubscribe"
@@ -222,6 +223,10 @@ jobs:
         find "$stage" -maxdepth 3 \( -name 'spack-build-out.txt' -o -name 'spack-build-env.txt' -o -name 'configure.log' \
           -o -name 'install-time-test-log.txt' \) \
           -exec sh -c 'pkg=${1#"$2"/}; pkg=${pkg%%/*}; cp "$1" "build-logs/${pkg}-$(basename "$1")"' _ {} "$stage" \;
+        # spack-env.txt includes the entire environment
+        # drop anything that looks like a credential.
+        find build-logs -name '*-spack-build-env.txt' \
+          -exec sed -i -E '/(TOKEN|SECRET|PASSWORD)[A-Z_]*=/d' {} +
         # Stand-alone test (spack test run) output.
         if [ -d ~/.spack/test ]; then
           find ~/.spack/test -name '*-test-out.txt' -exec cp {} build-logs/ \;
