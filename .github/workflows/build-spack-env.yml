@@ -222,6 +222,10 @@ jobs:
         find "$stage" -maxdepth 3 \( -name 'spack-build-out.txt' -o -name 'spack-build-env.txt' -o -name 'configure.log' \
           -o -name 'install-time-test-log.txt' \) \
           -exec sh -c 'pkg=${1#"$2"/}; pkg=${pkg%%/*}; cp "$1" "build-logs/${pkg}-$(basename "$1")"' _ {} "$stage" \;
+        # Stand-alone test (spack test run) output.
+        if [ -d ~/.spack/test ]; then
+          find ~/.spack/test -name '*-test-out.txt' -exec cp {} build-logs/ \;
+        fi
 
     - name: Upload build logs
       if: failure()
