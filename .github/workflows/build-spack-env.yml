@@ -37,7 +37,12 @@ on:
         type: string
         default: ''
       image-tag:
-        description: Image tag, pushed as <image-tag> and <image-tag>-<UTC date>
+        description: Image tag, pushed as <image-tag> and <image-tag>-<image-date>
+        required: false
+        type: string
+        default: ''
+      image-date:
+        description: Date for the dated image tag. Empty uses today (UTC).
         required: false
         type: string
         default: ''
@@ -71,6 +76,14 @@ jobs:
         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
           build-essential gfortran git python3 ca-certificates curl file patch \
           unzip bzip2 xz-utils zstd
+
+    - name: Install Fortran
+      if: ${{ inputs.container == '' }}
+      run: |
+        if ! command -v gfortran >/dev/null; then
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gfortran
+        fi
 
     - uses: actions/checkout@v5
 
@@ -154,7 +167,7 @@ jobs:
     - name: Upload spack.lock
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ inputs.environment }}-spack.lock
+        name: ${{ inputs.environment }}${{ runner.arch == 'ARM64' && '-arm64' || '' }}-spack.lock
         path: ${{ env.SPACK_ENV_DIR }}/spack.lock
 
     - name: Install
@@ -198,6 +211,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         IMAGE_SPEC: ${{ inputs.image-spec }}
         IMAGE_TAG: ${{ inputs.image-tag }}
+        IMAGE_DATE: ${{ inputs.image-date }}
       run: |
         push() {
           spack -e "$SPACK_ENV_DIR" buildcache push --unsigned --allow-missing \
@@ -208,7 +222,7 @@ jobs:
         push --force --only package
         # Not forced: --tag only includes layers for specs in the same push, and
         # this one finds them all in the cache without uploading anything.
-        dated="$IMAGE_TAG-$(date -u +%Y-%m-%d)"
+        dated="$IMAGE_TAG-${IMAGE_DATE:-$(date -u +%Y-%m-%d)}"
         push --tag "$dated"
         push --tag "$IMAGE_TAG"
         echo "image=${BUILDCACHE_URL#oci://}:$dated" >> "$GITHUB_OUTPUT"
@@ -236,6 +250,6 @@ jobs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ inputs.environment }}-build-logs
+        name: ${{ inputs.environment }}${{ runner.arch == 'ARM64' && '-arm64' || '' }}-build-logs
         path: build-logs/
         if-no-files-found: ignore
