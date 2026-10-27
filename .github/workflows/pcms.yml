@@ -31,14 +31,38 @@ permissions:
   packages: write
 
 jobs:
+  # date for the dated image tags 
+  image-date:
+    runs-on: ubuntu-24.04
+    outputs:
+      date: ${{ steps.date.outputs.date }}
+    steps:
+    - id: date
+      run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: image-date
     uses: ./.github/workflows/build-spack-env.yml
     with:
       environment: pcms
+      target: x86_64_v3
       tests: true
-      # Published as a runnable CPU image on main.
       image-spec: pcms+python+petsc
-      image-tag: pcms-develop
+      image-tag: pcms-develop-amd64
+      image-date: ${{ needs.image-date.outputs.date }}
+
+  build-arm:
+    needs: image-date
+    uses: ./.github/workflows/build-spack-env.yml
+    with:
+      environment: pcms
+      runner: ubuntu-24.04-arm
+      # Should work on runners (Neoverse N2) and on Apple silicon.
+      target: armv8.2a
+      tests: true
+      image-spec: pcms+python+petsc
+      image-tag: pcms-develop-arm64
+      image-date: ${{ needs.image-date.outputs.date }}
 
   # Compile-only: hosted runners have no GPU, so no tests. The container
   # provides nvcc; compiling for cuda_arch=75 needs no device.
@@ -57,19 +81,51 @@ jobs:
       container: rocm/dev-ubuntu-24.04:6.4.2
       base-image: rocm/dev-ubuntu-24.04:6.4.2
 
-  # Checks the published image runs on a plain base image, outside the
-  # environment it was built in.
-  test-container:
-    needs: build
-    if: ${{ needs.build.outputs.image != '' }}
+  # Combines the per-architecture images under pcms-develop.
+  publish-image:
+    needs: [image-date, build, build-arm]
+    if: ${{ !cancelled() && (needs.build.outputs.image != '' || needs.build-arm.outputs.image != '') }}
     runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.publish.outputs.image }}
     steps:
     - name: Log in to GHCR
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-    - name: Run image
+    - name: Tag multi-architecture image
+      id: publish
       env:
-        IMAGE: ${{ needs.build.outputs.image }}
+        REPO: ghcr.io/scorec/scorec-spack-buildcache
+        DATE: ${{ needs.image-date.outputs.date }}
+        BUILT: ${{ needs.build.outputs.image }} ${{ needs.build-arm.outputs.image }}
+      run: |
+        docker buildx imagetools create -t "$REPO:pcms-develop-$DATE" $BUILT
+        latest=()
+        for arch in amd64 arm64; do
+          if docker buildx imagetools inspect "$REPO:pcms-develop-$arch" >/dev/null 2>&1; then
+            latest+=("$REPO:pcms-develop-$arch")
+          fi
+        done
+        docker buildx imagetools create -t "$REPO:pcms-develop" "${latest[@]}"
+        echo "image=$REPO:pcms-develop-$DATE" >> "$GITHUB_OUTPUT"
+        {
+          echo "Built this run: $BUILT"
+          echo
+          echo "pcms-develop combines: ${latest[*]}"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+  # Checks the published image runs on a base image
+  test-container:
+    needs: publish-image
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+    - name: Runimage
+      env:
+        IMAGE: ${{ needs.publish-image.outputs.image }}
       run: |
         docker pull "$IMAGE"
         docker run --rm "$IMAGE" python3 -c "import pcms"

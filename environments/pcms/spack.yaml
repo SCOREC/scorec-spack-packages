@@ -12,9 +12,6 @@ spack:
     scorec: $env/../../spack_repo/scorec
 
   packages:
-    all:
-      # GitHub runners vary in architecture
-      require: target=x86_64_v3
     petsc:
       # Drop this once the petsc conflicts("~openmp", when="+kokkos ^kokkos+openmp").
       # Currently when Kokkos/kokkos-kernels+openmp, petsc recipe may pick ~openmp
