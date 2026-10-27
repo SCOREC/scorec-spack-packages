@@ -45,6 +45,7 @@ jobs:
     uses: ./.github/workflows/build-spack-env.yml
     with:
       environment: pcms
+      target: x86_64_v3
       tests: true
       image-spec: pcms+python+petsc
       image-tag: pcms-develop-amd64
@@ -56,6 +57,8 @@ jobs:
     with:
       environment: pcms
       runner: ubuntu-24.04-arm
+      # Should work on runners (Neoverse N2) and on Apple silicon.
+      target: armv8.2a
       tests: true
       image-spec: pcms+python+petsc
       image-tag: pcms-develop-arm64

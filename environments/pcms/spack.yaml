@@ -12,10 +12,6 @@ spack:
     scorec: $env/../../spack_repo/scorec
 
   packages:
-    all:
-      # armv8.2a should run on both the runners (Neoverse N2) and Apple silicon
-      require:
-      - one_of: [target=x86_64_v3, target=armv8.2a]
     petsc:
       # Drop this once the petsc conflicts("~openmp", when="+kokkos ^kokkos+openmp").
       # Currently when Kokkos/kokkos-kernels+openmp, petsc recipe may pick ~openmp

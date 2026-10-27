@@ -11,6 +11,12 @@ on:
         required: false
         type: string
         default: ubuntu-24.04
+      target:
+        description: >-
+          set spack target
+        required: false
+        type: string
+        default: ''
       base-image:
         description: Base image used when pushing runnable images to the build cache
         required: false
@@ -123,6 +129,10 @@ jobs:
           --oci-username-variable GITHUB_ACTOR \
           --oci-password-variable GITHUB_TOKEN \
           scorec-buildcache
+
+    - name: Set target
+      if: ${{ inputs.target != '' }}
+      run: spack -e "$SPACK_ENV_DIR" config add "packages:all:require:'target=${{ inputs.target }}'"
 
     - name: Register container CUDA toolkit
       if: ${{ inputs.container != '' }}
