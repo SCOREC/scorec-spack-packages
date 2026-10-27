@@ -56,3 +56,29 @@ and run `spack concretize` and `spack install` to install the packages.
 
 ## Using OpenMC with PUMI-Tally
 The case setup and run instructions are available here: [OpenMC with PUMI-Tally](https://github.com/Fuad-HH/openmc-pumi-tally-casehttps://gist.github.com/Fuad-HH/bf16253e70ae0122800f2128b9fd4a8f#create-mesh-and-run-case)
+
+## Build cache and container images
+
+CI builds the environments under `environments/` and pushes the results to a
+public Spack build cache. Add it as a mirror to install prebuilt binaries
+instead of building from source:
+
+```bash
+spack mirror add --unsigned scorec oci://ghcr.io/scorec/scorec-spack-buildcache
+```
+
+### PCMS container image
+
+The `pcms+python+petsc` spec of `environments/pcms` is also published as a
+runnable, multi-architecture container image. See the
+[PCMS README](https://github.com/SCOREC/pcms#run-pcms-in-a-container) for how
+to use it.
+
+| Tag | Contents |
+|---|---|
+| `ghcr.io/scorec/pcms:develop` | Latest build, for `linux/amd64` and `linux/arm64` |
+| `ghcr.io/scorec/pcms:develop-YYYY-MM-DD` | The build from that date |
+
+The same images are also tagged in the build cache repository as
+`pcms-develop`, `pcms-develop-YYYY-MM-DD`, and single-arch containers
+`pcms-develop-amd64` and `pcms-develop-arm64`.
