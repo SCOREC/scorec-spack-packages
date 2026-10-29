@@ -12,11 +12,11 @@ class M3dc1(CMakePackage, CudaPackage):
 
     homepage = "https://m3dc1.pppl.gov"
     # This is fixed to a forked branch because the update in cmake is not merged into the main repo yet. Once it is merged, we can switch back to the main repo.
-    git = "https://github.com/Sichao25/M3DC1.git"
+    git = "https://github.com/PrincetonUniversity/M3DC1.git"
 
     maintainers("TBD")
 
-    version("test", branch="yus/cmake")
+    version("master", branch="master")
 
     # ------------------------------------------------------------------
     # Variants mirroring the -D flags in your cmake invocation
