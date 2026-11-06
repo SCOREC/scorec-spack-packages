@@ -76,4 +76,8 @@ class PumiTally(CMakePackage, CudaPackage):
             args.append("-DCMAKE_POSITION_INDEPENDENT_CODE=ON")
         return args
 
-
+    @property
+    def sanity_check_is_file(self):
+        if self.spec.satisfies("@neutrals"):
+            return [join_path("bin", "degas2")]
+        return []

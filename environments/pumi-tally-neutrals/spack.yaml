@@ -1,0 +1,29 @@
+# PUMI-Tally neutrals (Degas2) environment (CPU: Kokkos Serial + OpenMP).
+#
+# Built by .github/workflows/pumi-tally.yml. Intended to be reused for
+# container images and as the dependency stack for downstream CI.
+#
+#   spack env activate environments/pumi-tally-neutrals
+#   spack install
+spack:
+  specs:
+  - pumi-tally@neutrals ^kokkos+serial+openmp
+
+  repos:
+    scorec: $env/../../spack_repo/scorec
+
+  packages:
+    all:
+      # GitHub runners vary in architecture
+      require: target=x86_64_v3
+
+  concretizer:
+    unify: true
+    reuse: false
+
+  config:
+    install_tree:
+      # Padding lets binaries from the build cache relocate to any install root.
+      padded_length: 128
+
+  view: false

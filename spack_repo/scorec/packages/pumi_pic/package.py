@@ -46,8 +46,11 @@ class PumiPic(CMakePackage, CudaPackage):
         msg="PUMI-PiC builds shared or links into shared consumers; EnGPar must be built with +pic or +shared",
     )
     
-    depends_on("kokkos@4.7.00:4.7.04")
+    # particle_structs/src/scs/SellCSigma.h references Kokkos::Serial unconditionally
+    depends_on("kokkos@4.7.00:4.7.04+serial")
     depends_on("omega-h@11.4.0-scorec +kokkos")
+    # Cabana master (post-0.7) requires a Kokkos memory space for AoSoA/Slice,
+    # but pumi-pic passes Kokkos::Device types;
     depends_on("cabana@0.6.1:0.7.0", when="+cabana")
 
     conflicts(

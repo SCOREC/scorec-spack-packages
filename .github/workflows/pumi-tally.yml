@@ -6,6 +6,7 @@ on:
     paths: &paths
     - environments/pumi-tally/**
     - environments/pumi-tally-cuda/**
+    - environments/pumi-tally-neutrals/**
     - spack_repo/scorec/repo.yaml
     - spack_repo/scorec/packages/pumi_tally/**
     - spack_repo/scorec/packages/pumi_pic/**
@@ -34,6 +35,13 @@ jobs:
     uses: ./.github/workflows/build-spack-env.yml
     with:
       environment: pumi-tally
+      tests: true
+
+  build-neutrals:
+    uses: ./.github/workflows/build-spack-env.yml
+    with:
+      environment: pumi-tally-neutrals
+      tests: true
 
   # Compile-only: hosted runners have no GPU. The container provides nvcc;
   # compiling for cuda_arch=75 needs no device.
