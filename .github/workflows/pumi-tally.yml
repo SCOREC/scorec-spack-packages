@@ -36,7 +36,7 @@ jobs:
       environment: pumi-tally
 
   # Compile-only: hosted runners have no GPU. The container provides nvcc;
-  # compiling for cuda_arch=75 needs no device.
+  # compiling for cuda_arch=80 needs no device.
   build-cuda:
     uses: ./.github/workflows/build-spack-env.yml
     with:
