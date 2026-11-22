@@ -17,51 +17,52 @@ class Pcms(CMakePackage, CudaPackage, ROCmPackage):
     git      = "https://github.com/SCOREC/pcms"
     maintainers = ['jacobmerson','cwsmith']
 
-    #version('0.0.5', tag='v0.0.5') 
-    version('0.0.5', commit='12d609cc2622c62b7d43263812fb8403a0a5f6ef')
     version('develop', branch='develop')
+    version('0.4.0', tag='v0.4.0')
 
-    # cannot build without omega_h
-    #variant('omega-h', default=True, description='enable Omega-h for unstructured meshes')
-    variant('client', default=True, description='enable pcms client code')
-    variant('server', default=True, description='enable pcms client code')
+    variant('coupler', default=True, description='coupling interfaces')
+    variant('xgc', default=True, description='XGC backend')
+    variant('omega_h', default=True, description='Omega_h backend for unstructured meshes')
+    variant('mfem', default=False, description='MFEM backend')
+    variant('meshfields', default=True, description='MeshFields high-order Lagrange spaces on Omega_h meshes')
+    variant('reconstruction', default=True, description='polynomial-reconstruction spaces')
+    variant('petsc', default=False, description='PETSc solves of the projections')
+    variant('units', default=False, description='check field units with LLNL/units')
+    variant('c', default=True, description='C API')
+    variant('fortran', default=True, description='Fortran API')
+    variant('python', default=False, description='Python module')
     variant('tests', default=True, description='enable test cases')
     variant('shared', default=True, description='enable shared library builds')
-    variant('fortran', default=True, description='enable fortran interfaces')
-    variant('python', default=False, description='enable python interfaces')
     variant('netcdf', default=False, description='link against netcdf for vmec read')
-    variant('petsc', default=False, description='link against petsc, required for conservative field transfer')
-    variant('meshfields', default=True, description='link against mesh fields for FEM field evaluation')
     variant('sundials', default=False, description='link against sundials for adaptive transient timestepping')
     variant('gnet', default=False, description='build the GNET to GTC mapping library and gnet2gtc tool')
-    variant('mfem', default=False, description='build the MFEM field adapter')
     variant('fusionio', default=False, description='evaluate fields through Fusion-IO (M3D-C1, geqdsk, ...)')
 
-    depends_on('redev@main', when='@develop')
-    depends_on('redev@4.3.1:',type=('build','link','run'))
-    depends_on('kokkos', type=('build','link','run'))
-    depends_on('kokkos-kernels', type=('build','link','run'))
+    depends_on('mpi')
+    depends_on('kokkos@4.5:4', type=('build','link','run'))
+    depends_on('kokkos-kernels', when='+reconstruction', type=('build','link','run'))
     # Only SCOREC omega-h versions; an open-ended range would also match omega-h@main
-    depends_on('omega-h@11.0.0-scorec:11,master-scorec+kokkos~trilinos+mpi')
-    depends_on('omega-h+shared', when="+shared")
+    depends_on('omega-h@11.0.0-scorec:11,master-scorec+kokkos~trilinos+mpi', when='+omega_h')
+    depends_on('omega-h+shared', when='+omega_h+shared')
     # 11.4.0-scorec is first version with pybind11 as private dependency
-    depends_on('omega-h@11.4.0-scorec:11,master-scorec+python', when="+python")
-    #depends_on('fftw',type=('build','link','run'))
-    depends_on('catch2@3:', when='@0.0.6:+tests',type=('build','link','run'))
-    depends_on('catch2@2:2.99', when='@:0.0.5+tests',type=('build','link','run'))
-    depends_on('perfstubs',type=('build','link','run'))
-    depends_on('adios2@2.10.2:', type=('build', 'link','run'))
-    depends_on('adios2+fortran', when="+fortran", type=('build', 'link','run'))
-    depends_on('meshfields+shared', when="@develop+python")
-    depends_on('meshfields+shared', when="+shared")
-    depends_on('meshfields@2026.10.22', when='@develop+meshfields')
+    depends_on('omega-h@11.4.0-scorec:11,master-scorec+python', when='+omega_h+python')
     depends_on('meshfields', when='+meshfields')
-    depends_on('petsc+kokkos', when="@develop+petsc")
-    depends_on('sundials', when="+sundials")
-    depends_on('hdf5', when="+gnet")
+    depends_on('meshfields@2026.10.22', when='@0.4:+meshfields')
+    depends_on('meshfields+shared', when='+meshfields+python')
+    depends_on('meshfields+shared', when='+meshfields+shared')
+    depends_on('redev@4.3.1:', when='+coupler', type=('build','link','run'))
+    depends_on('redev@main', when='@develop+coupler')
+    depends_on('adios2@2.10.2:', when='+coupler', type=('build','link','run'))
+    depends_on('adios2+fortran', when='+coupler+fortran', type=('build','link','run'))
+    depends_on('petsc+kokkos', when='+petsc')
+    depends_on('units-llnl', when='+units')
     depends_on('mfem@4.9:+mpi build_system=cmake', when='+mfem')
     depends_on('mfem+shared~static', when='+mfem+shared')
+    depends_on('sundials', when='+sundials')
+    depends_on('hdf5', when='+gnet')
+    depends_on('netcdf-c build_system=cmake', when='+netcdf')
     depends_on('fusion-io', when='+fusionio')
+    depends_on('catch2@3:', when='+tests', type=('build','link','run'))
     # FindPETSc and fusion-io's CMake package (HDF5) use pkg-config
     depends_on('pkgconfig', type='build')
     depends_on('c')
@@ -71,9 +72,16 @@ class Pcms(CMakePackage, CudaPackage, ROCmPackage):
     depends_on('py-pybind11', type='build', when='+python')
     depends_on('py-numpy', type=('build','link','run'), when='+python')
     depends_on('py-pytest', type='test', when='+tests+python')
-    depends_on('netcdf-c build_system=cmake', when='+netcdf')
     # pcms_testcases stores large files with git-lfs
     depends_on('git-lfs', type='build', when='+tests')
+
+    conflicts('+meshfields', when='~omega_h', msg='MeshFields spaces need +omega_h')
+    conflicts('+xgc', when='~omega_h', msg='XGC backend needs +omega_h')
+    conflicts('+fortran', when='~c', msg='Fortran API needs +c')
+    requires('+coupler+xgc', '+omega_h+reconstruction', policy='any_of', when='+c',
+             msg='C API needs +coupler+xgc or +omega_h+reconstruction')
+    conflicts('+petsc', when='~meshfields', msg='PETSc projections need +meshfields')
+    conflicts('+units', when='@0.4.0', msg='units support was added after 0.4')
 
     extends('python', when='+python')
 
@@ -81,21 +89,18 @@ class Pcms(CMakePackage, CudaPackage, ROCmPackage):
     for arch in CudaPackage.cuda_arch_values:
         cuda_dep = '+cuda cuda_arch={0}'.format(arch)
         depends_on('kokkos {0}'.format(cuda_dep), when=cuda_dep)
-        depends_on('kokkos-kernels {0}'.format(cuda_dep), when=cuda_dep)
-        depends_on('meshfields {0}'.format(cuda_dep), when='{0} ^meshfields'.format(cuda_dep))
-        depends_on('petsc {0}'.format(cuda_dep), when='@develop+petsc {0}'.format(cuda_dep))
+        depends_on('kokkos-kernels {0}'.format(cuda_dep), when='+reconstruction {0}'.format(cuda_dep))
+        depends_on('meshfields {0}'.format(cuda_dep), when='+meshfields {0}'.format(cuda_dep))
+        depends_on('petsc {0}'.format(cuda_dep), when='+petsc {0}'.format(cuda_dep))
 
     # Propagate amdgpu_target to dependencies
     for arch in ROCmPackage.amdgpu_targets:
         rocm_dep = '+rocm amdgpu_target={0}'.format(arch)
         depends_on('kokkos {0}'.format(rocm_dep), when=rocm_dep)
-        depends_on('meshfields {0}'.format(rocm_dep), when='{0} ^meshfields'.format(rocm_dep))
-        depends_on('petsc {0}'.format(rocm_dep), when='@develop+petsc {0}'.format(rocm_dep))
+        depends_on('meshfields {0}'.format(rocm_dep), when='+meshfields {0}'.format(rocm_dep))
+        depends_on('petsc {0}'.format(rocm_dep), when='+petsc {0}'.format(rocm_dep))
 
     conflicts('cuda_arch=none', when='+cuda', msg='CUDA architecture is required')
-    conflicts('+gnet', when='@:0.0.5', msg='GNET support was added after 0.0.5')
-    conflicts('+mfem', when='@:0.0.5', msg='MFEM support was added after 0.0.5')
-    conflicts('+fusionio', when='@:0.0.5', msg='Fusion-IO support was added after 0.0.5')
     # Builds through kokkos's nvcc_wrapper, so +cuda must match Kokkos's backend
     conflicts('~cuda', when='^kokkos+cuda', msg='PCMS requires +cuda when Kokkos has +cuda')
     conflicts('+cuda', when='^kokkos~cuda', msg='PCMS requires Kokkos+cuda when CUDA is enabled')
@@ -121,29 +126,23 @@ class Pcms(CMakePackage, CudaPackage, ROCmPackage):
             git('lfs', 'pull')
 
     def cmake_args(self):
-        prefix = "PCMS"
-        if self.spec.satisfies("@:0.0.5"):
-            prefix = "WDMCPL"
         args = [
-                self.define(f"{prefix}_ENABLE_OMEGA_H", True),
-                self.define_from_variant(f"{prefix}_ENABLE_SERVER", 'server'),
-                self.define_from_variant(f"{prefix}_ENABLE_CLIENT", 'client'),
-                self.define_from_variant("BUILD_TESTING", 'tests'),
-                self.define_from_variant("BUILD_SHARED_LIBS", 'shared'),
-                self.define(f'{prefix}_ENABLE_SPDLOG', False),
-                self.define(f'{prefix}_ENABLE_C', True),
-                self.define_from_variant(f'{prefix}_ENABLE_Fortran', 'fortran'),
-                self.define_from_variant(f'{prefix}_ENABLE_Python', 'python'),
-                self.define(f'{prefix}_TEST_DATA_DIR', self.stage.source_path+'/testdata'),
-                self.define_from_variant(f'{prefix}_ENABLE_NETCDF', 'netcdf'),
-                self.define_from_variant(f'{prefix}_ENABLE_PETSC', 'petsc'),
-                self.define_from_variant(f'{prefix}_ENABLE_MESHFIELDS', 'meshfields'),
-                self.define_from_variant(f'{prefix}_ENABLE_SUNDIALS', 'sundials'),
-                self.define_from_variant(f'{prefix}_ENABLE_GNET', 'gnet'),
-                self.define_from_variant(f'{prefix}_ENABLE_MFEM', 'mfem'),
-                self.define_from_variant(f'{prefix}_ENABLE_FUSIONIO', 'fusionio')
+                self.define_from_variant('PCMS_ENABLE_OMEGA_H', 'omega_h'),
+                self.define_from_variant('PCMS_ENABLE_OMEGA_H_MESHFIELDS', 'meshfields'),
+                self.define_from_variant('PCMS_ENABLE_COUPLER', 'coupler'),
+                self.define_from_variant('PCMS_ENABLE_XGC', 'xgc'),
+                self.define_from_variant('PCMS_ENABLE_POLYNOMIAL_RECONSTRUCTION',
+                                         'reconstruction'),
+                self.define_from_variant('PCMS_ENABLE_MFEM', 'mfem'),
+                self.define_from_variant('PCMS_ENABLE_PETSC', 'petsc'),
+                self.define_from_variant('PCMS_ENABLE_UNITS', 'units'),
+                self.define_from_variant('PCMS_ENABLE_C', 'c'),
+                self.define_from_variant('PCMS_ENABLE_FORTRAN', 'fortran'),
+                self.define_from_variant('PCMS_ENABLE_PYTHON', 'python'),
+                self.define_from_variant('BUILD_TESTING', 'tests'),
+                self.define_from_variant('BUILD_SHARED_LIBS', 'shared'),
+                self.define('PCMS_TEST_DATA_DIR', self.stage.source_path+'/testdata'),
                 ]
-        args.append(self.define("perfstubs_DIR",self.spec["perfstubs"].libs.directories[0] + "/cmake" ))
         if self.spec.satisfies("+python"):
             args.append(self.define("PCMS_PYTHON_INSTALL_LOCATION", python_platlib))
         return args + self.kokkos_cxx_args()
@@ -191,6 +190,8 @@ class Pcms(CMakePackage, CudaPackage, ROCmPackage):
 
     def test_external_usage(self):
         """build and run a project that uses the installed pcms via find_package"""
+        if not self.spec.satisfies('+omega_h+reconstruction+c'):
+            raise SkipTest('the example uses Omega_h and the C transfer API')
         src = join_path(self.test_suite.current_test_cache_dir,
                         'examples', 'external-usage-example')
         cmake = which(self.spec['cmake'].prefix.bin.cmake, required=True)
