@@ -8,7 +8,7 @@
 #   spack install
 spack:
   specs:
-  - pumi-tally+cuda cuda_arch=75
+  - pumi-tally+cuda cuda_arch=80
 
   repos:
     scorec: $env/../../spack_repo/scorec

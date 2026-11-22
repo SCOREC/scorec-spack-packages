@@ -6,7 +6,7 @@ spack:
     - ['~petsc', '+petsc']
     # ~tests: pcms runs its test executables at build time (catch_discover_tests),
     # which initializes Kokkos and fails on CI runners without a GPU.
-    - ['+cuda cuda_arch=75 ~tests']
+    - ['+cuda cuda_arch=80 ~tests']
 
   repos:
     scorec: $env/../../spack_repo/scorec
